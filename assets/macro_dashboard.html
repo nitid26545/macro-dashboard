@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Macro Monitor — ฉากหลังเศรษฐกิจ</title>
+<style>
+  :root{
+    --bg:#ffffff;--surface:#f7f7f5;--line:#e3e2dc;--line2:#cfcec6;
+    --text:#1c1b19;--muted:#6a6862;--hint:#97958c;
+    --warn-bg:#faeeda;--warn-tx:#854f0b;--dang-bg:#fcebeb;--dang-tx:#a32d2d;
+    --ok-bg:#eaf3de;--ok-tx:#3b6d11;--info-bg:#e6f1fb;--info-tx:#185fa5;
+    --pos:#1d9e75;--neg:#d85a30;--accent:#534ab7;
+  }
+  @media (prefers-color-scheme: dark){
+    :root{
+      --bg:#1a1a18;--surface:#232320;--line:#34332f;--line2:#45443f;
+      --text:#ededea;--muted:#a3a199;--hint:#76746d;
+      --warn-bg:#3a2c12;--warn-tx:#f0c074;--dang-bg:#3a1717;--dang-tx:#f09595;
+      --ok-bg:#1f2d10;--ok-tx:#bfe07a;--info-bg:#10243a;--info-tx:#85b7eb;
+      --pos:#5dcaa5;--neg:#f0997b;--accent:#a59cf0;
+    }
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--text);
+    font-family:"Segoe UI",-apple-system,"Noto Sans Thai",Tahoma,Arial,sans-serif;
+    line-height:1.55;padding:24px;max-width:1060px;margin:0 auto}
+  .head{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;flex-wrap:wrap}
+  h1{font-size:22px;font-weight:600;margin:0 0 2px}
+  .sub{color:var(--muted);font-size:13px}
+  .upd{text-align:right;background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:8px 12px;font-size:12px;color:var(--muted);white-space:nowrap}
+  .upd b{display:block;font-size:15px;color:var(--text);font-weight:600;margin:1px 0}
+  .cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin:18px 0 6px}
+  .card{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:12px 14px}
+  .card .k{font-size:12px;color:var(--muted)}
+  .card .v{font-size:20px;font-weight:600;margin-top:3px}
+  .badge{display:inline-block;padding:3px 10px;border-radius:8px;font-size:13px;font-weight:600}
+  .sec{font-size:15px;font-weight:600;margin:26px 0 10px}
+  .grid-spark{display:grid;grid-template-columns:repeat(auto-fit,minmax(205px,1fr));gap:12px}
+  .sp{border:1px solid var(--line);border-radius:10px;padding:9px 11px;background:var(--bg)}
+  .sp .row{display:flex;justify-content:space-between;align-items:baseline}
+  .sp .nm{font-size:12px;color:var(--muted)} .sp .lv{font-size:14px;font-weight:600}
+  .sp .dl{font-size:11px;color:var(--hint);margin-top:3px}
+  table{width:100%;border-collapse:collapse;font-size:13px}
+  th,td{padding:5px 8px;border-bottom:1px solid var(--line)}
+  th{color:var(--muted);font-weight:500;font-size:12px;text-align:right}
+  th.l,td.l{text-align:left} td.num{text-align:right;font-variant-numeric:tabular-nums}
+  .thh td{font-size:12px;color:var(--accent);font-weight:600;padding-top:12px;border-bottom:none}
+  .note{color:var(--hint);font-size:12px;margin-top:10px}
+  .tip{position:fixed;pointer-events:none;background:var(--text);color:var(--bg);font-size:12px;padding:5px 8px;border-radius:6px;opacity:0;transition:opacity .1s;z-index:9}
+</style>
+</head>
+<body>
+<div class="head">
+  <div>
+    <h1>Macro Monitor — ฉากหลังเศรษฐกิจ</h1>
+    <div class="sub" id="sub">แหล่ง: FRED (keyless CSV)</div>
+  </div>
+  <div class="upd" id="upd"></div>
+</div>
+
+<div class="cards" id="cards"></div>
+
+<div class="sec">Growth × Inflation — เส้นทาง 12 เดือน</div>
+<div id="quadwrap" style="display:flex;justify-content:center"></div>
+<div class="note" style="text-align:center">ลากเส้นจากเก่า → ใหม่ · จุดทึบ = ปัจจุบัน · ชี้เมาส์ที่จุดเพื่อดูค่า</div>
+
+<div class="sec">เทียบ YoY และครั้งก่อนหน้า — 22 ซีรีส์</div>
+<table id="cmp"><thead><tr>
+  <th class="l">ดัชนี</th><th>ปัจจุบัน</th><th>ครั้งก่อน</th><th>Δ ครั้งก่อน</th><th>YoY (Δ12m)</th><th>z (5y)</th>
+</tr></thead><tbody></tbody></table>
+<div class="note">หมายเหตุ: CPI / Core PCE / IndPro คอลัมน์ "ปัจจุบัน" เป็นอัตรา YoY อยู่แล้ว — Δ จึงคือการเร่ง/ชะลอของอัตรานั้น · ค่าบวก = สูงขึ้นจากงวดก่อน/ปีก่อน</div>
+
+<div class="sec">การเคลื่อนที่ของดัชนีหลัก (3 ปี)</div>
+<div class="grid-spark" id="sparks"></div>
+
+<div class="note" id="refresh" style="margin-top:20px;padding:12px 14px;background:var(--surface);border:1px solid var(--line);border-radius:10px;color:var(--muted)"></div>
+<div class="tip" id="tip"></div>
+
+<script>
+/* DATA_START */
+const GEN="26 มิ.ย. 2026";
+const D={
+  asof:"รายวัน 24–25 มิ.ย. 2026 · รายเดือน 1 พ.ค. 2026",
+  quad:{name:"Mixed / Transition",g:0.00,i:0.50,conf:"ต่ำ"},
+  trail:[{d:"มิ.ย.25",g:-0.33,i:0.50},{d:"ก.ย.25",g:0.33,i:1.00},{d:"ธ.ค.25",g:0.00,i:-0.50},{d:"มี.ค.26",g:0.33,i:0.50},{d:"now",g:0.00,i:0.00}],
+  // [theme,label,unit,value,prev,dPrev,dYoY,z]
+  rows:[
+    ["Rates","10Y Treasury","%",4.41,4.50,-0.09,0.11,0.75],
+    ["Rates","2Y Treasury","%",4.11,4.16,-0.05,0.36,0.23],
+    ["Rates","30Y Treasury","%",4.86,4.94,-0.08,0.03,0.92],
+    ["Rates","Curve 10Y-2Y","",0.31,0.30,0.01,-0.24,0.66],
+    ["Rates","Curve 10Y-3M","",0.56,0.56,0.00,0.65,0.79],
+    ["Rates","Fed Funds","%",3.63,3.63,0.00,-0.70,-0.23],
+    ["Inflation","Real Yield 10Y","%",2.23,2.29,-0.06,0.22,0.90],
+    ["Inflation","Breakeven 10Y","%",2.21,2.18,0.03,-0.07,-0.92],
+    ["Inflation","5y5f Inflation","%",2.19,2.17,0.02,-0.09,-0.79],
+    ["Inflation","CPI YoY","%",4.17,3.78,0.39,1.79,0.99],
+    ["Inflation","Core PCE YoY","%",3.41,3.32,0.09,0.63,0.16],
+    ["Inflation","WTI Crude","",78.94,80.35,-1.41,3.22,-0.03],
+    ["Growth","Unemployment","%",4.30,4.30,0.00,0.00,1.19],
+    ["Growth","Jobless Claims","",215000,227000,-12000,-28000,-0.41],
+    ["Growth","IndPro YoY","%",1.67,1.37,0.30,1.56,1.55],
+    ["Dollar/FCI","USD Broad","",120.40,119.39,1.01,-0.33,-0.32],
+    ["Dollar/FCI","Fin Conditions","",-0.52,-0.51,0.00,-0.03,-1.11],
+    ["Dollar/FCI","HY Spread","%",2.76,2.71,0.05,-0.30,-0.99],
+    ["Dollar/FCI","VIX","",18.63,19.49,-0.86,1.15,-0.11],
+    ["Dollar/FCI","Fed Bal Sheet","",6735645,6736424,-779,54589,-1.02],
+    ["Thailand","USDTHB","",32.79,32.53,0.26,0.20,-0.87],
+    ["Thailand","THB Real Eff FX","",100.59,98.85,1.74,1.37,1.29]
+  ],
+  sparks:[
+    ["10Y yield","%",[3.61,3.81,4.05,4.18,4.59,4.77,4.22,3.88,3.87,4.19,4.33,4.63,4.51,4.48,3.99,3.91,3.74,4.37,4.18,4.58,4.58,4.24,4.17,4.25,4.41,4.26,4.23,4.23,4.12,4.11,4.09,4.18,4.26,3.97,4.33,4.39,4.47]],
+    ["10Y real yield","%",[1.45,1.59,1.68,1.92,2.24,2.36,2.00,1.72,1.68,1.87,1.98,2.25,2.16,2.16,1.79,1.76,1.55,2.04,1.92,2.24,2.16,1.86,1.84,2.00,2.07,1.97,1.90,1.82,1.77,1.81,1.85,1.93,1.90,1.72,2.02,1.91,2.07]],
+    ["Breakeven 10Y","%",[2.16,2.22,2.37,2.26,2.35,2.41,2.22,2.16,2.19,2.32,2.35,2.38,2.35,2.32,2.20,2.15,2.19,2.33,2.26,2.34,2.42,2.38,2.33,2.25,2.34,2.29,2.33,2.41,2.35,2.30,2.24,2.25,2.36,2.25,2.31,2.48,2.40]],
+    ["CPI YoY","%",[3.07,3.29,3.72,3.69,3.25,3.13,3.32,3.09,3.16,3.49,3.36,3.24,2.97,2.94,2.61,2.43,2.58,2.72,2.87,2.99,2.80,2.38,2.33,2.38,2.68,2.74,2.94,3.02,2.73,2.70,2.65,2.39,2.43,3.29,3.78,4.17,3.90]],
+    ["Unemployment","%",[3.60,3.50,3.70,3.70,3.90,3.70,3.80,3.70,3.90,3.90,3.90,3.90,4.10,4.20,4.20,4.10,4.10,4.20,4.10,4.00,4.20,4.20,4.20,4.30,4.10,4.30,4.30,4.40,4.40,4.50,4.40,4.30,4.40,4.30,4.30,4.30,4.30]],
+    ["USD broad","",[120.05,119.36,118.57,120.76,122.31,123.79,119.94,118.42,120.33,121.01,121.52,123.02,122.10,124.47,123.87,122.33,121.69,124.81,126.58,129.28,128.48,128.28,126.43,123.14,121.77,119.34,121.21,120.21,120.15,121.39,120.99,119.75,117.90,117.82,120.12,118.39,119.17]],
+    ["HY spread","%",[4.05,3.82,3.81,4.03,4.47,3.87,3.39,3.56,3.32,3.12,3.21,3.20,3.21,3.35,3.17,3.07,2.83,2.74,2.92,2.68,2.87,3.50,3.78,3.32,2.91,3.13,2.84,2.81,2.94,2.94,2.81,2.88,3.12,3.16,2.77,2.72,2.72]],
+    ["VIX","",[15.65,13.59,13.93,13.09,17.52,16.87,12.63,12.45,13.88,13.11,13.65,15.39,12.92,12.22,18.59,15.00,19.26,21.88,13.51,17.35,16.43,19.63,21.77,24.60,18.57,16.83,20.38,16.12,16.29,17.44,17.24,14.95,17.44,19.86,24.54,16.99,16.05]],
+    ["USDTHB","",[34.58,35.30,34.39,35.12,36.56,36.23,34.91,34.35,35.32,35.86,36.59,37.08,36.82,36.77,35.56,34.05,32.52,33.95,34.31,34.32,33.60,34.23,34.16,33.61,32.83,32.47,32.50,32.31,32.42,32.33,31.99,31.49,31.49,31.04,32.50,32.45,32.62]]
+  ]
+};
+/* DATA_END */
+
+function boot(){
+  const cs=getComputedStyle(document.documentElement),C=n=>cs.getPropertyValue(n).trim();
+  document.getElementById('sub').textContent='แหล่ง: FRED (keyless CSV) · '+D.rows.length+' ซีรีส์';
+  document.getElementById('upd').innerHTML='อัพเดทล่าสุด<b>'+GEN+'</b><span>ข้อมูล ณ '+D.asof+'</span>';
+  document.getElementById('refresh').innerHTML='<b style="color:var(--text)">ไฟล์นี้เป็น snapshot — ไม่อัพเดทเองตอนเปิด</b> (FRED ไม่เปิด CORS + เครื่องไม่มี Python ให้ดึงสดในเบราว์เซอร์). วิธีรีเฟรช: บอก Claude ว่า "อัพเดท macro dashboard" → ดึง FRED ใหม่แล้วสร้างไฟล์ทับ; หรือรันสกิล macro-monitor ในแชต Desktop ที่มี Python.';
+
+  const fnum=(v,u)=>(Math.abs(v)>=1000?Math.round(v).toLocaleString():v.toFixed(2))+(u||'');
+  const fdel=(v,u)=>{const s=v>0?'+':(v<0?'':'');const t=Math.abs(v)>=1000?Math.round(v).toLocaleString():v.toFixed(2);return (v>0?'+':(v<0?'-':'±'))+(v<0?t.replace('-',''):t)+(u||'');};
+  const col=v=>v>0?C('--pos'):(v<0?C('--neg'):C('--muted'));
+
+  /* cards */
+  const qmap={"Mixed / Transition":["--surface","--muted"],"Reflation / Overheating":["--warn-bg","--warn-tx"],"Goldilocks":["--ok-bg","--ok-tx"],"Stagflation":["--dang-bg","--dang-tx"],"Deflation / Slowdown":["--info-bg","--info-tx"]};
+  const qc=qmap[D.quad.name]||["--surface","--muted"];
+  document.getElementById('cards').innerHTML=[
+    ['Quadrant','<span class="badge" style="background:'+C(qc[0])+';color:'+C(qc[1])+'">'+D.quad.name+'</span>'],
+    ['Growth axis',(D.quad.g>=0?'+':'')+D.quad.g.toFixed(2)],
+    ['Inflation axis',(D.quad.i>=0?'+':'')+D.quad.i.toFixed(2)],
+    ['ความมั่นใจ',D.quad.conf]
+  ].map(c=>'<div class="card"><div class="k">'+c[0]+'</div><div class="v">'+c[1]+'</div></div>').join('');
+
+  /* quadrant + trail */
+  const NS='http://www.w3.org/2000/svg',W=520,H=470,x0=80,y0=24,pw=360,ph=360,cx=x0+pw/2,cy=y0+ph/2,sc=(pw/2)/1.15,X=g=>cx+g*sc,Y=i=>cy-i*sc;
+  const el=(t,a)=>{const e=document.createElementNS(NS,t);for(const k in a)e.setAttribute(k,a[k]);return e;};
+  const svg=el('svg',{viewBox:'0 0 '+W+' '+H,width:'100%',style:'max-width:520px'});
+  const tx=(x,y,s,f,sz,an,w)=>{const t=el('text',{x:x,y:y,fill:f,'font-size':sz||12,'text-anchor':an||'middle'});if(w)t.setAttribute('font-weight',w);t.textContent=s;svg.appendChild(t);};
+  [['--warn-bg',cx,y0,'Reflation','--warn-tx',1],['--dang-bg',x0,y0,'Stagflation','--dang-tx',1],['--ok-bg',cx,cy,'Goldilocks','--ok-tx',-1],['--info-bg',x0,cy,'Slowdown','--info-tx',-1]].forEach(q=>{svg.appendChild(el('rect',{x:q[1],y:q[2],width:pw/2,height:ph/2,fill:C(q[0]),opacity:.6}));tx(q[1]+pw/4,q[5]>0?y0+20:cy+ph/2-12,q[3],C(q[4]),13,'middle',600);});
+  svg.appendChild(el('line',{x1:x0,y1:cy,x2:x0+pw,y2:cy,stroke:C('--line2')}));
+  svg.appendChild(el('line',{x1:cx,y1:y0,x2:cx,y2:y0+ph,stroke:C('--line2')}));
+  tx(x0+pw+6,cy+4,'growth →',C('--hint'),11,'start');tx(cx,y0-8,'↑ inflation',C('--hint'),11,'middle');
+  svg.appendChild(el('polyline',{points:D.trail.map(p=>X(p.g)+','+Y(p.i)).join(' '),fill:'none',stroke:C('--muted'),'stroke-width':2,'stroke-dasharray':'4 3'}));
+  const tip=document.getElementById('tip');
+  D.trail.forEach((p,k)=>{const now=k===D.trail.length-1;const c=el('circle',{cx:X(p.g),cy:Y(p.i),r:now?7:4.5,fill:now?C('--accent'):C('--bg'),stroke:now?C('--accent'):C('--muted'),'stroke-width':1.5,opacity:now?1:.5+.4*k/D.trail.length,cursor:'pointer'});
+    c.addEventListener('mousemove',e=>{tip.style.opacity=1;tip.style.left=(e.clientX+12)+'px';tip.style.top=(e.clientY+12)+'px';tip.textContent=p.d+' · growth '+(p.g>=0?'+':'')+p.g.toFixed(2)+' · inflation '+(p.i>=0?'+':'')+p.i.toFixed(2);});
+    c.addEventListener('mouseleave',()=>tip.style.opacity=0);svg.appendChild(c);
+    tx(X(p.g),Y(p.i)-(now?12:9),p.d,now?C('--text'):C('--hint'),now?12:11,'middle',now?600:400);});
+  document.getElementById('quadwrap').appendChild(svg);
+
+  /* comparison table */
+  const tb=document.querySelector('#cmp tbody');let html='',last='';
+  D.rows.forEach(r=>{const[theme,label,unit,val,prev,dp,dy,z]=r;
+    if(theme!==last){html+='<tr class="thh"><td colspan="6">'+theme+'</td></tr>';last=theme;}
+    const full=70,w=Math.min(Math.abs(z)/2,1)*full,zc=z>=0?C('--pos'):C('--neg');
+    const zbar='<svg width="150" height="11" style="vertical-align:middle"><line x1="75" y1="0" x2="75" y2="11" stroke="'+C('--line2')+'"/><rect x="'+(z>=0?75:75-w)+'" y="2" width="'+w+'" height="8" rx="2" fill="'+zc+'"/></svg>';
+    html+='<tr><td class="l">'+label+'</td>'+
+      '<td class="num" style="font-weight:600">'+fnum(val,unit)+'</td>'+
+      '<td class="num" style="color:var(--muted)">'+fnum(prev,unit)+'</td>'+
+      '<td class="num" style="color:'+col(dp)+'">'+fdel(dp,unit)+'</td>'+
+      '<td class="num" style="color:'+col(dy)+'">'+fdel(dy,unit)+'</td>'+
+      '<td class="num">'+zbar+' <span style="color:'+zc+';font-weight:600">'+(z>=0?'+':'')+z.toFixed(2)+'</span></td></tr>';
+  });
+  tb.innerHTML=html;
+
+  /* sparklines */
+  document.getElementById('sparks').innerHTML=D.sparks.map(s=>{const nm=s[0],u=s[1],v=s[2],w=200,h=44,pad=5,n=v.length,lo=Math.min.apply(null,v),hi=Math.max.apply(null,v),rng=(hi-lo)||1;
+    const pts=v.map((x,k)=>(pad+(w-2*pad)*k/(n-1)).toFixed(1)+','+(pad+(h-2*pad)*(1-(x-lo)/rng)).toFixed(1)).join(' ');
+    const lastv=v[n-1],prev=v[Math.max(0,n-13)],d=lastv-prev,lx=(w-pad).toFixed(1),ly=(pad+(h-2*pad)*(1-(lastv-lo)/rng)).toFixed(1);
+    return '<div class="sp"><div class="row"><span class="nm">'+nm+'</span><span class="lv">'+lastv.toFixed(2)+u+'</span></div>'+
+      '<svg viewBox="0 0 '+w+' '+h+'" width="100%" style="display:block;margin-top:4px"><polyline points="'+pts+'" fill="none" stroke="'+C('--accent')+'" stroke-width="1.6" stroke-linejoin="round"/><circle cx="'+lx+'" cy="'+ly+'" r="2.6" fill="'+C('--accent')+'"/></svg>'+
+      '<div class="dl">YoY '+(d>=0?'+':'')+d.toFixed(2)+u+'</div></div>';
+  }).join('');
+}
+try{ boot(); }catch(e){ document.body.insertAdjacentHTML('beforeend','<pre style="color:#a32d2d;white-space:pre-wrap">error: '+(e&&e.message?e.message:e)+'</pre>'); }
+</script>
+</body>
+</html>

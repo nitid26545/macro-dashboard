@@ -1,0 +1,5 @@
+__pycache__/
+*.pyc
+macro_cache/
+macro_snapshot.json
+.DS_Store
